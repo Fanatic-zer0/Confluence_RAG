@@ -1,5 +1,5 @@
 """
-Feedback Store  (n8n nodes: "Feedback Prep" + "Store Feedback (Postgres)")
+Feedback Store
 
 Self-learning log: every Q&A interaction is persisted to the 'rag_feedback'
 table.  Interactions with best_score < LOW_CONFIDENCE_THRESHOLD are flagged

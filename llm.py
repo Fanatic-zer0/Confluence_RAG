@@ -1,5 +1,5 @@
 """
-LLM Generation  (n8n nodes: "LLM Generate Answer" + "Format Response")
+LLM Generation
 
 Calls ChatOllama with the assembled prompt and strips chain-of-thought
 <think> blocks produced by qwen3 / deepseek-r1 style models.

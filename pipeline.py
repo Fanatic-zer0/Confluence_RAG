@@ -1,5 +1,5 @@
 """
-Pipeline Orchestration  (replaces all n8n routing / switch / merge nodes)
+Pipeline Orchestration
 
 This module is the direct equivalent of the n8n workflow execution order:
 
@@ -16,7 +16,7 @@ This module is the direct equivalent of the n8n workflow execution order:
   6. Format Response        → strip <think>, append sources markdown
   (fire-and-forget)
   7. Feedback Store         → write to rag_feedback table
-"""
+""" 
 from __future__ import annotations
 
 import asyncio

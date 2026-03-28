@@ -1,4 +1,4 @@
-"""
+""" 
 Streaming Pipeline  — async-generator variant of pipeline.py
 
 Yields SSE-ready event dicts in this sequence:

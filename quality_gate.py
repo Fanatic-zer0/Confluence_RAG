@@ -1,5 +1,5 @@
 """
-Quality Gate  (n8n node: "Quality Gate" + "Route: Proceed / Retry / Fallback")
+Quality Gate  
 
 Scores the retrieved chunks and returns one of three routes:
   proceed  – good enough, send to Prompt Assembly
@@ -22,7 +22,7 @@ class GateResult:
     route: Route
     best_score: float
     chunk_count: int
-
+ 
 
 def evaluate(chunks: List[Chunk], retry_count: int) -> GateResult:
     """Decide the next step based on retrieval quality.

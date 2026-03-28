@@ -1,5 +1,5 @@
 """
-FastAPI Application  (replaces n8n Webhook + Respond to Webhook nodes)
+FastAPI Application
 
 Endpoints:
   POST /rag      – main RAG query endpoint

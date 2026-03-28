@@ -1,6 +1,4 @@
 """
-MCP Fallback  (n8n nodes: "MCP Fallback Agent" + "Process MCP Content")
-
 When the vector DB has no good matches after all retries, this module:
   1. Connects to the live Confluence MCP server
   2. Calls `search` directly to discover page IDs (no LLM)

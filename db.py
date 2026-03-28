@@ -1,5 +1,5 @@
 """
-Database singletons.
+Database singletons. 
 
 TWO databases (same Postgres server, different tables / roles):
   1. 'documents'    – pgvector (LangChain PGVector)

@@ -1,4 +1,4 @@
-"""
+""" 
 Central configuration. All values can be overridden via environment variables
 or a .env file at the project root.
 """

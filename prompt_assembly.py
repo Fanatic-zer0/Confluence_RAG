@@ -1,5 +1,5 @@
 """
-Prompt Assembly  (n8n node: "Prompt Assembly")
+Prompt Assembly
 
 Builds the final LLM prompt from retrieved chunks and extracts
 the sources list for citation in the response.
@@ -17,7 +17,7 @@ If the answer is not in the context, say you don't know and suggest \
 where it might be documented.
 Always include a "Sources" section listing the URLs you used.\
 """
-
+ 
 
 def assemble(
     chunks: List[Chunk],

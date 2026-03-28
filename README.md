@@ -180,7 +180,7 @@ psql postgresql://rag_user:changeme@localhost:5432/confluence_rag -f db_init.sql
 - Create `rag_feedback` (self-learning log) with relevant indexes
 - Create `rag_review_queue` view for human review of low-confidence answers
 
----
+--- 
 
 ### 2 · Ollama — embedding model + LLM
 

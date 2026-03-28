@@ -25,3 +25,4 @@ pgvector>=0.3.6                  # pgvector Python type support
 psycopg2==2.9.11
 # ── HTTP ──────────────────────────────────────────────────────────────────────
 httpx>=0.28.0                    # used internally by langchain-mcp-adapters
+ 

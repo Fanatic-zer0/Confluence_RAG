@@ -1,5 +1,5 @@
 """
-Ingest  (n8n nodes: "Embed MCP Chunks" + "Ingest to PGVector (documents)")
+Ingest
 
 Self-healing vector index: embeds MCP-fetched page chunks and inserts them
 into the 'documents' pgvector collection so that the NEXT identical query

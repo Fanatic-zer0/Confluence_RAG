@@ -1,5 +1,5 @@
 """
-Query Pre-processing  (n8n node: "Query Pre-processing")
+Query Pre-processing
 
 - Normalises the question (lowercase)
 - Expands common abbreviations
@@ -28,7 +28,7 @@ ABBR_MAP: dict[str, str] = {
     "cd":  "continuous deployment",
     "k8s": "kubernetes",
 }
-
+  
 # ── Date-range heuristics ─────────────────────────────────────────────────────
 
 DATE_RULES: list[tuple[str, str]] = [

@@ -1,5 +1,5 @@
 """
-Query Expansion  (n8n node: "Query Expansion")
+Query Expansion
 
 Self-correcting retry strategy:
   Retry 1 – synonym injection (broadens vocabulary)
@@ -24,7 +24,7 @@ _SYNONYM_MAP: dict[str, str] = {
     "slow":    "slow performance latency timeout",
     "fail":    "fail failure crash down",
 }
-
+ 
 # ── Stop-word pattern for retry 2 ────────────────────────────────────────────
 
 _STOP = re.compile(

@@ -1,4 +1,4 @@
-"""
+""" 
 Shared data models — request/response (Pydantic) and internal pipeline state
 (dataclasses).
 """

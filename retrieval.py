@@ -1,5 +1,5 @@
 """
-Retrieval  (n8n nodes: "Retrieval Agent" + "Normalize Chunks")
+Retrieval
 
 Direct pgvector similarity search — no LLM agent needed at this stage.
 The LangGraph agent overhead (2 LLM round-trips per call) was the primary
@@ -51,4 +51,4 @@ def run_retrieval_agent(query_ctx: QueryContext) -> List[Chunk]:
     logger.info("Retrieval returned %d chunks | scores: %s",
                 len(chunks),
                 [c.score for c in chunks[:5]])
-    return chunks
+    return chunks 

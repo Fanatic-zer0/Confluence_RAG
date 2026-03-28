@@ -3,7 +3,7 @@
 -- Run this once against your Postgres database before starting the service.
 -- ─────────────────────────────────────────────────────────────────────────────
 
--- Enable the pgvector extension (requires pgvector to be installed)
+-- Enable the pgvector extension (requires pgvector to be installed) 
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- ── Table 1: documents (pgvector semantic search) ────────────────────────────
