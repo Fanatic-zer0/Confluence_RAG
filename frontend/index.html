@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Confluence AI Assistant</title>
+
+  <!-- Tailwind Play CDN with typography plugin -->
+  <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+  <script>
+    tailwind.config = { darkMode: 'class', theme: { extend: {} } };
+  </script>
+
+  <!-- marked.js — Markdown renderer -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+
+  <!-- highlight.js — code syntax highlighting (light theme, swapped on dark mode) -->
+  <link id="hljs-theme" rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+  <style>
+    /* ── Animations ─────────────────────────────────────────────────────────── */
+    .msg-enter { animation: msgSlide .22s ease-out; }
+    @keyframes msgSlide {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0);   }
+    }
+
+    .cursor-blink::after {
+      content: '▋';
+      margin-left: 1px;
+      color: #6366f1;
+      animation: blink .9s step-end infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    .dot-bounce { animation: dotB 1.4s ease-in-out infinite; }
+    .dot-bounce:nth-child(2) { animation-delay: .2s; }
+    .dot-bounce:nth-child(3) { animation-delay: .4s; }
+    @keyframes dotB {
+      0%,60%,100% { transform: scale(.6); opacity: .4; }
+      30%          { transform: scale(1);  opacity: 1;  }
+    }
+
+    /* ── Prose overrides ────────────────────────────────────────────────────── */
+    .prose             { max-width: none !important; }
+    .prose :first-child { margin-top:    0 !important; }
+    .prose :last-child  { margin-bottom: 0 !important; }
+
+    .prose pre {
+      background: #1e2030 !important;
+      border-radius: .5rem;
+      overflow-x: auto;
+    }
+    .prose code:not(pre code) {
+      background: #e2e8f0;
+      padding: .15em .35em;
+      border-radius: .25rem;
+      font-size: .875em;
+      font-weight: 500;
+      color: #3b4252;
+    }
+    .dark .prose code:not(pre code) {
+      background: #334155;
+      color: #cbd5e1;
+    }
+
+    /* ── Scrollbar ──────────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar        { width: 5px; }
+    ::-webkit-scrollbar-track  { background: transparent; }
+    ::-webkit-scrollbar-thumb  { background: #94a3b8; border-radius: 3px; }
+    .dark ::-webkit-scrollbar-thumb { background: #475569; }
+
+    /* ── Textarea auto-resize ───────────────────────────────────────────────── */
+    #textInput { scrollbar-width: none; }
+    #textInput::-webkit-scrollbar { display: none; }
+
+    /* ── Suggestion pills ───────────────────────────────────────────────────── */
+    .pill {
+      padding: .375rem .9rem;
+      border-radius: 9999px;
+      font-size: .8125rem;
+      background: #f1f5f9;
+      color: #64748b;
+      border: 1px solid #e2e8f0;
+      cursor: pointer;
+      transition: background .15s, color .15s, border-color .15s;
+      white-space: nowrap;
+    }
+    .pill:hover {
+      background: #eef2ff;
+      color: #4f46e5;
+      border-color: #c7d2fe;
+    }
+    .dark .pill {
+      background: #1e293b;
+      color: #94a3b8;
+      border-color: #334155;
+    }
+    .dark .pill:hover {
+      background: #312e81;
+      color: #a5b4fc;
+      border-color: #4338ca;
+    }
+
+    /* ── Feedback buttons ───────────────────────────────────────────────────── */
+    .fb-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .375rem;
+      padding: .25rem .75rem;
+      border-radius: .5rem;
+      font-size: .75rem;
+      background: #f1f5f9;
+      color: #64748b;
+      border: 1px solid #e2e8f0;
+      cursor: pointer;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .fb-btn:hover { background: #e2e8f0; }
+    .dark .fb-btn { background: #1e293b; color: #94a3b8; border-color: #334155; }
+    .dark .fb-btn:hover { background: #2d3748; }
+    .fb-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    .fb-btn.pos-active {
+      background: #f0fdf4; color: #16a34a;
+      border-color: #86efac;
+      font-weight: 600;
+    }
+    .dark .fb-btn.pos-active {
+      background: #14532d40; color: #4ade80;
+      border-color: #166534;
+    }
+    .fb-btn.neg-active {
+      background: #fef2f2; color: #dc2626;
+      border-color: #fca5a5;
+      font-weight: 600;
+    }
+    .dark .fb-btn.neg-active {
+      background: #7f1d1d40; color: #f87171;
+      border-color: #991b1b;
+    }
+
+    /* ── Source card ────────────────────────────────────────────────────────── */
+    .source-card {
+      transition: box-shadow .15s;
+    }
+    .source-card:hover {
+      box-shadow: 0 1px 6px rgba(99,102,241,.15);
+    }
+  </style>
+</head>
+
+<body class="h-full bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100 flex overflow-hidden transition-colors duration-200">
+
+  <!-- ══════════════════════════ SIDEBAR ══════════════════════════════════════ -->
+  <aside class="w-64 flex-shrink-0 bg-white dark:bg-slate-800
+                border-r border-slate-200 dark:border-slate-700
+                flex flex-col select-none transition-colors duration-200">
+
+    <!-- Logo -->
+    <div class="px-4 py-5 border-b border-slate-200 dark:border-slate-700 flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700
+                  flex items-center justify-center text-white font-black text-xl shadow">C</div>
+      <div>
+        <div class="font-semibold text-sm leading-snug">Confluence AI</div>
+        <div class="text-xs text-slate-400 mt-0.5">Knowledge Assistant</div>
+      </div>
+    </div>
+
+    <!-- Settings panel -->
+    <div class="flex-1 overflow-y-auto p-4 space-y-5">
+
+      <div>
+        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+          Space Key
+        </label>
+        <input id="spaceKey" type="text" placeholder="ENG · SRE · OPS · …"
+          class="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-600
+                 bg-white dark:bg-slate-700 px-3 py-2 placeholder-slate-400
+                 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" />
+        <p class="mt-1 text-xs text-slate-400">Leave blank to search all spaces</p>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+          Your Name / ID
+        </label>
+        <input id="userId" type="text" placeholder="Optional"
+          class="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-600
+                 bg-white dark:bg-slate-700 px-3 py-2 placeholder-slate-400
+                 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" />
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+          Session
+        </label>
+        <div id="sessionDisplay"
+          class="font-mono text-xs bg-slate-100 dark:bg-slate-700
+                 text-slate-500 dark:text-slate-400 px-3 py-2 rounded-lg truncate">
+        </div>
+      </div>
+
+      <button onclick="newChat()"
+        class="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg
+               bg-indigo-50 dark:bg-indigo-900/30
+               text-indigo-600 dark:text-indigo-400
+               text-sm font-medium
+               hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+        </svg>
+        New conversation
+      </button>
+
+      <!-- API health dot -->
+      <div class="flex items-center gap-2 pt-1">
+        <span id="apiDot" class="w-2 h-2 rounded-full bg-slate-300 transition-colors duration-500"></span>
+        <span id="apiStatus" class="text-xs text-slate-400">Checking…</span>
+      </div>
+    </div>
+
+    <!-- Bottom bar: version + dark toggle -->
+    <div class="p-4 border-t border-slate-200 dark:border-slate-700
+                flex items-center justify-between">
+      <span class="text-xs text-slate-400">v2.0</span>
+      <button onclick="toggleDark()" title="Toggle dark mode"
+        class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+        <!-- sun icon — shown in dark mode so user can switch back to light -->
+        <svg id="iconSun" class="w-4 h-4 text-slate-500 hidden" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"/>
+        </svg>
+        <!-- moon icon — shown in light mode so user can switch to dark -->
+        <svg id="iconMoon" class="w-4 h-4 text-slate-500" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
+        </svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ══════════════════════════ MAIN ═════════════════════════════════════════ -->
+  <main class="flex-1 flex flex-col min-w-0 transition-colors duration-200">
+
+    <!-- Header -->
+    <header class="flex-shrink-0 px-6 py-4
+                   bg-white dark:bg-slate-800
+                   border-b border-slate-200 dark:border-slate-700
+                   flex items-center justify-between">
+      <div>
+        <h1 class="font-semibold text-slate-900 dark:text-white">
+          Confluence knowledge base
+        </h1>
+        <p id="headerCtx" class="text-xs text-slate-400 mt-0.5">
+          No space filter — searching all spaces
+        </p>
+      </div>
+
+      <!-- Streaming indicator badge -->
+      <div id="streamBadge"
+        class="hidden items-center gap-1.5
+               bg-indigo-50 dark:bg-indigo-900/30
+               text-indigo-600 dark:text-indigo-400
+               text-xs font-medium px-3 py-1.5 rounded-full">
+        <span class="flex gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 dot-bounce"></span>
+          <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 dot-bounce"></span>
+          <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 dot-bounce"></span>
+        </span>
+        Generating…
+      </div>
+    </header>
+
+    <!-- Messages container -->
+    <div id="messages" class="flex-1 overflow-y-auto px-4 md:px-10 py-8 space-y-8">
+
+      <!-- Welcome / empty state -->
+      <div id="welcome" class="flex flex-col items-center justify-center py-20 text-center">
+        <div class="w-20 h-20 rounded-3xl bg-indigo-100 dark:bg-indigo-900/40
+                    flex items-center justify-center text-4xl mb-5">📚</div>
+        <h2 class="text-2xl font-bold text-slate-700 dark:text-slate-200 mb-3">
+          Ask your docs anything
+        </h2>
+        <p class="text-slate-400 max-w-md text-sm leading-relaxed mb-8">
+          Search your Confluence knowledge base with natural language.
+          Set a <strong class="font-semibold text-slate-500 dark:text-slate-300">space key</strong>
+          to narrow results, or leave it empty to search globally.
+        </p>
+        <div class="flex flex-wrap justify-center gap-2 max-w-lg">
+          <button class="pill" onclick="setQuestion('How do I set up a CI/CD pipeline?')">CI/CD pipeline setup</button>
+          <button class="pill" onclick="setQuestion('What is the SLA for P1 incidents?')">P1 incident SLA</button>
+          <button class="pill" onclick="setQuestion('How to perform a root cause analysis?')">RCA process</button>
+          <button class="pill" onclick="setQuestion('What are our Kubernetes naming conventions?')">K8s conventions</button>
+          <button class="pill" onclick="setQuestion('How do I request production access?')">Prod access request</button>
+        </div>
+      </div>
+
+    </div><!-- /messages -->
+
+    <!-- Input area -->
+    <div class="flex-shrink-0 bg-white dark:bg-slate-800
+                border-t border-slate-200 dark:border-slate-700
+                px-4 md:px-10 py-4">
+      <div class="max-w-4xl mx-auto">
+        <div id="inputBox"
+          class="flex items-end gap-3
+                 bg-slate-50 dark:bg-slate-700/60
+                 border border-slate-200 dark:border-slate-600
+                 rounded-2xl px-4 py-3
+                 focus-within:ring-2 focus-within:ring-indigo-500
+                 focus-within:border-transparent transition-all">
+          <textarea id="textInput"
+            placeholder="Ask anything about your Confluence docs…"
+            rows="1"
+            class="flex-1 bg-transparent text-sm resize-none focus:outline-none
+                   placeholder-slate-400 dark:placeholder-slate-500
+                   max-h-40 leading-relaxed"
+            onkeydown="handleKey(event)"
+            oninput="autoResize(this)"></textarea>
+          <button id="sendBtn" onclick="sendMessage()" title="Send (Enter)"
+            class="w-9 h-9 flex-shrink-0 rounded-xl bg-indigo-600 hover:bg-indigo-700
+                   active:scale-95 flex items-center justify-center transition-all
+                   disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                    d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </div>
+        <p class="text-xs text-slate-400 mt-2 text-center">
+          Enter to send · Shift+Enter for new line
+        </p>
+      </div>
+    </div>
+
+  </main><!-- /main -->
+
+  <!-- ══════════════════════════ SCRIPTS ══════════════════════════════════════ -->
+  <script>
+    // ── marked configuration ─────────────────────────────────────────────────
+    marked.setOptions({ breaks: true, gfm: true });
+
+    // ── Application state ────────────────────────────────────────────────────
+    let sessionId   = genId();
+    let isStreaming = false;
+    let msgCounter  = 0;
+    const rawTexts  = {};     // msgId → accumulated raw markdown string
+    const msgRatings = {};    // feedbackId → 'positive' | 'negative'
+
+    // ── Bootstrap ────────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      applyDark(localStorage.getItem('dark') === 'true');
+      $('sessionDisplay').textContent = sessionId;
+      $('spaceKey').addEventListener('input', updateHeaderCtx);
+      checkHealth();
+    });
+
+    // ── Utility ──────────────────────────────────────────────────────────────
+    function $(id) { return document.getElementById(id); }
+
+    function genId() {
+      return 'sess-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    }
+
+    function escHtml(s) {
+      return String(s ?? '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function scrollBottom() {
+      const el = $('messages');
+      el.scrollTop = el.scrollHeight;
+    }
+
+    // ── Dark mode ────────────────────────────────────────────────────────────
+    function toggleDark() {
+      applyDark(!document.documentElement.classList.contains('dark'));
+    }
+
+    function applyDark(on) {
+      document.documentElement.classList.toggle('dark', on);
+      $('iconSun').classList.toggle('hidden',  !on);   // sun visible in dark mode (click → light)
+      $('iconMoon').classList.toggle('hidden',  on);   // moon visible in light mode (click → dark)
+      $('hljs-theme').href = on
+        ? 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css'
+        : 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css';
+      localStorage.setItem('dark', on ? 'true' : 'false');
+    }
+
+    // ── Header context label ─────────────────────────────────────────────────
+    function updateHeaderCtx() {
+      const sk = $('spaceKey').value.trim();
+      $('headerCtx').textContent = sk
+        ? `Filtering to space: ${sk}`
+        : 'No space filter — searching all spaces';
+    }
+
+    // ── New chat ─────────────────────────────────────────────────────────────
+    function newChat() {
+      if (isStreaming) return;
+      sessionId = genId();
+      $('sessionDisplay').textContent = sessionId;
+      const msgs = $('messages');
+      [...msgs.children].forEach(el => { if (el.id !== 'welcome') el.remove(); });
+      $('welcome').classList.remove('hidden');
+      Object.keys(rawTexts).forEach(k => delete rawTexts[k]);
+      Object.keys(msgRatings).forEach(k => delete msgRatings[k]);
+      msgCounter = 0;
+    }
+
+    // ── Input helpers ────────────────────────────────────────────────────────
+    function setQuestion(q) {
+      $('textInput').value = q;
+      autoResize($('textInput'));
+      $('textInput').focus();
+    }
+
+    function handleKey(e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    }
+
+    function autoResize(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+    }
+
+    // ── Message builders ─────────────────────────────────────────────────────
+    function addUserBubble(text) {
+      const msgs = $('messages');
+      const div  = document.createElement('div');
+      div.className = 'flex justify-end msg-enter';
+      div.innerHTML = `
+        <div class="max-w-xl bg-indigo-600 text-white rounded-2xl rounded-tr-sm
+                    px-4 py-3 text-sm shadow-sm whitespace-pre-wrap break-words leading-relaxed">
+          ${escHtml(text)}
+        </div>`;
+      msgs.appendChild(div);
+      scrollBottom();
+    }
+
+    function createAIMessage() {
+      const id   = ++msgCounter;
+      const msgs = $('messages');
+      const div  = document.createElement('div');
+      div.id        = `wrap-${id}`;
+      div.className = 'flex gap-3 msg-enter';
+      div.innerHTML = `
+        <!-- Avatar -->
+        <div class="w-8 h-8 flex-shrink-0 rounded-xl
+                    bg-gradient-to-br from-indigo-500 to-indigo-700
+                    flex items-center justify-center text-white text-xs font-bold mt-1 shadow">
+          AI
+        </div>
+
+        <!-- Content column -->
+        <div class="flex-1 min-w-0" style="max-width:52rem">
+
+          <!-- Status / thinking dots -->
+          <div id="status-${id}" class="flex items-center gap-2 mb-2 text-sm text-slate-400">
+            <span class="flex gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-slate-400 dot-bounce"></span>
+              <span class="w-1.5 h-1.5 rounded-full bg-slate-400 dot-bounce"></span>
+              <span class="w-1.5 h-1.5 rounded-full bg-slate-400 dot-bounce"></span>
+            </span>
+            <span id="status-text-${id}">Initializing…</span>
+          </div>
+
+          <!-- Answer markdown -->
+          <div id="content-${id}"
+            class="hidden prose dark:prose-invert text-sm
+                   bg-white dark:bg-slate-800 rounded-2xl rounded-tl-sm
+                   px-5 py-4 shadow-sm min-h-[2rem]">
+          </div>
+
+          <!-- Confidence + flagged badges -->
+          <div id="meta-${id}" class="hidden mt-1.5 flex flex-wrap items-center gap-2"></div>
+
+          <!-- Sources accordion -->
+          <details id="sources-${id}" class="hidden mt-2 group">
+            <summary class="list-none flex items-center gap-1.5 text-xs text-slate-400
+                            hover:text-slate-600 dark:hover:text-slate-300
+                            cursor-pointer select-none">
+              <svg class="w-3.5 h-3.5 transition-transform group-open:rotate-90"
+                   fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                      d="M9 5l7 7-7 7"/>
+              </svg>
+              <span id="sources-count-${id}">Sources</span>
+            </summary>
+            <div id="sources-list-${id}" class="mt-2 space-y-1.5 pl-5"></div>
+          </details>
+
+          <!-- Feedback row -->
+          <div id="feedback-${id}" class="hidden mt-3 flex flex-wrap items-center gap-2"></div>
+
+        </div>`;
+      msgs.appendChild(div);
+      scrollBottom();
+      return id;
+    }
+
+    // ── Status helpers ───────────────────────────────────────────────────────
+    function setStatus(id, text) {
+      const el = $(`status-text-${id}`);
+      if (el) el.textContent = text;
+    }
+
+    function hideStatus(id) {
+      const el = $(`status-${id}`);
+      if (el) el.classList.add('hidden');
+    }
+
+    // ── Streaming content ────────────────────────────────────────────────────
+    function appendChunk(id, content) {
+      rawTexts[id] = (rawTexts[id] || '') + content;
+      const el = $(`content-${id}`);
+      if (!el) return;
+      if (el.classList.contains('hidden')) {
+        el.classList.remove('hidden');
+        hideStatus(id);
+      }
+      // Re-render full markdown; append blinking cursor while streaming
+      el.innerHTML = marked.parse(rawTexts[id]) +
+                     '<span class="cursor-blink not-prose inline-block"></span>';
+      scrollBottom();
+    }
+
+    function finalizeContent(id) {
+      const el = $(`content-${id}`);
+      if (!el || !rawTexts[id]) return;
+      el.innerHTML = marked.parse(rawTexts[id]);
+      // Apply syntax highlighting to all code blocks
+      el.querySelectorAll('pre code').forEach(hljs.highlightElement);
+      scrollBottom();
+    }
+
+    // ── URL safety (prevent javascript: protocol links) ───────────────────────
+    function isSafeUrl(url) {
+      if (!url || url === '#') return false;
+      try {
+        const u = new URL(url, window.location.href);
+        return u.protocol === 'http:' || u.protocol === 'https:';
+      } catch { return false; }
+    }
+
+    // ── Sources ──────────────────────────────────────────────────────────────
+    function showSources(id, sources) {
+      if (!sources?.length) return;
+      const det  = $(`sources-${id}`);
+      const list = $(`sources-list-${id}`);
+      const cnt  = $(`sources-count-${id}`);
+      if (!det || !list) return;
+
+      cnt.textContent = `${sources.length} source${sources.length !== 1 ? 's' : ''}`;
+
+      sources.forEach((s, i) => {
+        const pct  = Math.round((s.score || 0) * 100);
+        const icon = pct >= 75 ? '🟢' : pct >= 50 ? '🟡' : '🔴';
+        const lbl  = s.label || `[${i + 1}]`;
+        const card = document.createElement('div');
+        card.className = 'source-card flex items-start gap-2 bg-slate-50 dark:bg-slate-700/50 ' +
+                         'border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2.5';
+        card.innerHTML = `
+          <span class="text-xs font-mono text-slate-400 mt-0.5 flex-shrink-0">${escHtml(lbl)}</span>
+          <div class="flex-1 min-w-0">
+            ${isSafeUrl(s.url)
+              ? `<a href="${escHtml(s.url)}" target="_blank" rel="noopener noreferrer"
+                    class="text-xs font-medium text-indigo-600 dark:text-indigo-400
+                           hover:underline break-words leading-snug">
+                    ${escHtml(s.title || s.url)}
+                  </a>`
+              : `<span class="text-xs font-medium text-slate-600 dark:text-slate-300 break-words">
+                    ${escHtml(s.title || '(untitled)')}
+                  </span>`
+            }
+          </div>
+          <span class="flex-shrink-0 text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+            ${icon}&nbsp;${pct}%
+          </span>`;
+        list.appendChild(card);
+      });
+
+      det.classList.remove('hidden');
+    }
+
+    // ── Finish interaction: badges + feedback UI ──────────────────────────────
+    function finishInteraction(id, feedbackId, bestScore, flagged) {
+      // Confidence badge
+      const meta = $(`meta-${id}`);
+      if (meta) {
+        meta.classList.remove('hidden');
+        const pct = Math.round((bestScore || 0) * 100);
+        meta.innerHTML = `
+          <span class="inline-flex items-center gap-1 text-xs
+                       bg-slate-100 dark:bg-slate-700
+                       text-slate-500 dark:text-slate-400
+                       px-2 py-0.5 rounded-full">
+            🎯 Confidence: ${pct}%
+          </span>
+          ${flagged
+            ? `<span class="inline-flex items-center gap-1 text-xs
+                            bg-amber-50 dark:bg-amber-900/30
+                            text-amber-600 dark:text-amber-400
+                            px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">
+                 ⚠️ Low confidence — verify with sources
+               </span>`
+            : ''}`;
+      }
+
+      // Feedback UI
+      if (feedbackId > 0) {
+        const fb = $(`feedback-${id}`);
+        if (fb) {
+          fb.classList.remove('hidden');
+          fb.innerHTML = `
+            <span class="text-xs text-slate-400 mr-1">Was this helpful?</span>
+            <button id="fb-pos-${id}" class="fb-btn"
+              onclick="submitRating(${feedbackId}, 'positive', ${id})">
+              👍 Yes
+            </button>
+            <button id="fb-neg-${id}" class="fb-btn"
+              onclick="submitRating(${feedbackId}, 'negative', ${id})">
+              👎 No
+            </button>
+            <div id="fb-comment-wrap-${id}" class="hidden w-full flex gap-2 mt-1.5">
+              <textarea id="fb-comment-${id}"
+                placeholder="Optional notes (what was missing or wrong?)…"
+                rows="1"
+                class="flex-1 text-xs rounded-lg border border-slate-200 dark:border-slate-600
+                       bg-white dark:bg-slate-700 px-2.5 py-1.5
+                       focus:outline-none focus:ring-1 focus:ring-indigo-400 resize-none"
+                oninput="autoResize(this)"></textarea>
+              <button class="text-xs px-3 py-1.5 rounded-lg bg-indigo-600 text-white
+                             hover:bg-indigo-700 transition-colors whitespace-nowrap flex-shrink-0"
+                onclick="submitComment(${feedbackId}, ${id})">
+                Save note
+              </button>
+            </div>`;
+        }
+      }
+    }
+
+    // ── Rating submission ────────────────────────────────────────────────────
+    async function submitRating(feedbackId, rating, msgId) {
+      msgRatings[feedbackId] = rating;
+
+      // Optimistic UI update
+      const pos = $(`fb-pos-${msgId}`);
+      const neg = $(`fb-neg-${msgId}`);
+      if (pos) { pos.disabled = true; pos.classList.toggle('pos-active', rating === 'positive'); }
+      if (neg) { neg.disabled = true; neg.classList.toggle('neg-active', rating === 'negative'); }
+
+      // Show comment area
+      $(`fb-comment-wrap-${msgId}`)?.classList.remove('hidden');
+
+      // Persist
+      try {
+        await fetch(`/feedback/${feedbackId}/rating`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ rating, comment: '' }),
+        });
+      } catch { /* non-blocking */ }
+    }
+
+    // ── Comment submission ───────────────────────────────────────────────────
+    async function submitComment(feedbackId, msgId) {
+      const textEl  = $(`fb-comment-${msgId}`);
+      const wrapEl  = $(`fb-comment-wrap-${msgId}`);
+      const comment = textEl?.value?.trim() || '';
+      if (!comment) return;
+
+      const rating = msgRatings[feedbackId] || 'positive';
+      try {
+        await fetch(`/feedback/${feedbackId}/rating`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ rating, comment }),
+        });
+      } catch { /* non-blocking */ }
+
+      if (wrapEl) {
+        wrapEl.innerHTML =
+          '<span class="text-xs text-slate-400 italic">✓ Note saved — thank you!</span>';
+      }
+    }
+
+    // ── Error display ─────────────────────────────────────────────────────────
+    function showError(id, message) {
+      hideStatus(id);
+      const el = $(`content-${id}`);
+      if (!el) return;
+      el.classList.remove('hidden');
+      el.innerHTML = `
+        <div class="flex items-start gap-2 text-red-600 dark:text-red-400">
+          <span class="text-xl flex-shrink-0 mt-0.5">⚠️</span>
+          <div>
+            <p class="text-sm font-semibold">Something went wrong</p>
+            <p class="text-xs mt-1 opacity-80">${escHtml(message)}</p>
+          </div>
+        </div>`;
+    }
+
+    // ── Main send ────────────────────────────────────────────────────────────
+    async function sendMessage() {
+      if (isStreaming) return;
+      const input    = $('textInput');
+      const question = input.value.trim();
+      if (!question) return;
+
+      // Reset input
+      input.value       = '';
+      input.style.height = 'auto';
+
+      // Hide welcome screen
+      $('welcome')?.classList.add('hidden');
+
+      // Add user bubble + create AI message shell
+      addUserBubble(question);
+      const msgId = createAIMessage();
+
+      // Lock UI
+      isStreaming = true;
+      $('sendBtn').disabled = true;
+      const badge = $('streamBadge');
+      badge.classList.remove('hidden');
+      badge.classList.add('flex');
+
+      const spaceKey = $('spaceKey').value.trim() || null;
+      const userId   = $('userId').value.trim()   || null;
+
+      try {
+        const resp = await fetch('/rag/stream', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            question,
+            space_key:  spaceKey,
+            user_id:    userId,
+            session_id: sessionId,
+          }),
+        });
+
+        if (!resp.ok) {
+          const text = await resp.text().catch(() => `HTTP ${resp.status}`);
+          showError(msgId, text);
+          return;
+        }
+
+        const reader  = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let   buffer  = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+
+          // Split on newlines; keep incomplete last segment in buffer
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const raw = line.slice(6).trim();
+            if (!raw || raw === '[DONE]') continue;
+            try { handleEvent(msgId, JSON.parse(raw)); } catch { /* skip */ }
+          }
+        }
+
+        // Flush any remaining data in buffer
+        if (buffer.startsWith('data: ')) {
+          const raw = buffer.slice(6).trim();
+          if (raw) try { handleEvent(msgId, JSON.parse(raw)); } catch { /* skip */ }
+        }
+
+      } catch (err) {
+        showError(msgId, err.message || 'Network or connection error');
+      } finally {
+        isStreaming = false;
+        $('sendBtn').disabled = false;
+        badge.classList.add('hidden');
+        badge.classList.remove('flex');
+        finalizeContent(msgId);
+      }
+    }
+
+    // ── SSE event dispatcher ─────────────────────────────────────────────────
+    function handleEvent(msgId, event) {
+      switch (event.type) {
+        case 'status':        setStatus(msgId, event.message);                             break;
+        case 'content_start': hideStatus(msgId);                                           break;
+        case 'chunk':         appendChunk(msgId, event.content);                           break;
+        case 'sources':       showSources(msgId, event.sources);                           break;
+        case 'done':          finishInteraction(msgId, event.feedback_id,
+                                event.best_score, event.flagged);                          break;
+        case 'error':         showError(msgId, event.message);                             break;
+      }
+    }
+
+    // ── API health check ─────────────────────────────────────────────────────
+    async function checkHealth() {
+      try {
+        const ok = (await fetch('/health')).ok;
+        $('apiDot').className    = `w-2 h-2 rounded-full transition-colors duration-500 ${ok ? 'bg-green-500' : 'bg-red-500'}`;
+        $('apiStatus').textContent = ok ? 'API connected' : 'API unreachable';
+      } catch {
+        $('apiDot').className      = 'w-2 h-2 rounded-full bg-red-500 transition-colors duration-500';
+        $('apiStatus').textContent = 'API unreachable';
+      }
+      setTimeout(checkHealth, 30_000);
+    }
+  </script>
+</body>
+</html>
